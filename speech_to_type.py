@@ -26,6 +26,30 @@ from openai import OpenAI
 from PIL import Image, ImageDraw
 
 # ---------------------------------------------------------------------------
+# macOS pynput compatibility fix
+# ---------------------------------------------------------------------------
+# pynput 1.8.1 on macOS has a bug where GlobalHotKeys._on_press expects 'injected' 
+# but the Darwin backend calls it with only one argument.
+if sys.platform == "darwin":
+    try:
+        from pynput.keyboard import GlobalHotKeys
+        original_on_press = GlobalHotKeys._on_press
+        original_on_release = GlobalHotKeys._on_release
+        
+        # pynput 1.8.1 _wrap(index=2) is strict about signature.
+        # It expects exactly 2 arguments (excluding self) for _on_press/_on_release.
+        def patched_on_press(self, key, injected=False):
+            return original_on_press(self, key, injected=injected)
+            
+        def patched_on_release(self, key, injected=False):
+            return original_on_release(self, key, injected=injected)
+            
+        GlobalHotKeys._on_press = patched_on_press
+        GlobalHotKeys._on_release = patched_on_release
+    except Exception as e:
+        print(f"[WARN] Failed to apply pynput patch: {e}")
+
+# ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 
@@ -187,6 +211,7 @@ class ASRClient:
             ],
             stream=True,
             max_tokens=512,
+            temperature=0.0,
         )
         parts = []
         for chunk in stream:
@@ -482,8 +507,10 @@ class LFMSpeechToType:
             print(f"\n[READY] Press {hk} to start recording.")
             print("[READY] Right-click tray icon to quit.\n")
         except Exception as e:
-            print(f"[ERROR] Failed to bind hotkey '{hk}': {e}")
-            print("        Check config.ini syntax (e.g. <ctrl>+<alt>+<space>)")
+            # Handle potential pynput/accessibility errors gracefully
+            err_msg = str(e) if "<exception str() failed>" not in str(e) else "Internal pynput/Accessibility error"
+            print(f"[ERROR] Failed to bind hotkey '{hk}': {err_msg} ({type(e).__name__})")
+            print("        Ensure Terminal has 'Accessibility' permissions in System Settings.")
 
 # ---------------------------------------------------------------------------
 # Entry point
