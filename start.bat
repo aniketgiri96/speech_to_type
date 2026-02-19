@@ -16,5 +16,5 @@ REM Install dependencies if needed
 
 echo Starting...  Edit config.ini to change hotkey or settings.
 echo.
-%PYTHON% lfm_speech_to_type.py %*
+%PYTHON% speech_to_type.py %*
 pause

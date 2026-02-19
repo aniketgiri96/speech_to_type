@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  lfm-server:
+    build: .
+    container_name: lfm-speech-server
+    ports:
+      - "8142:8142"
+    volumes:
+      # Mount the local models directory to /app/models in the container
+      - ./models:/app/models
+    restart: unless-stopped
+    # Allocate pseudo-TTY for clean output
+    tty: true
+    # Use the command defined in Dockerfile CMD, or override here if needed
+    # command: ...

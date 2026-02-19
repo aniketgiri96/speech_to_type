@@ -1,0 +1,26 @@
+# Ignore model files (too large for build context)
+models/
+*.gguf
+
+# Ignore virtual environments
+.venv
+venv
+env
+
+# Ignore git metadata
+.git
+
+# Ignore artifacts
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Ignore logs
+*.log
+
+# Ignore OS files
+.DS_Store
+Thumbs.db

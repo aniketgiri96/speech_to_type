@@ -1,75 +1,103 @@
 # LFM Speech-to-Type
 
-> A local, privacy-first alternative to WhisperFlow — powered by Liquid AI's **LFM2.5-Audio-1.5B** model running entirely on your machine.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![OS: macOS](https://img.shields.io/badge/OS-macOS-blue?logo=apple)](https://apple.com)
+[![OS: Windows](https://img.shields.io/badge/OS-Windows-experimental?logo=windows&color=orange)](https://microsoft.com)
 
-Press a hotkey → speak → text appears in whatever input field is focused. No cloud, no subscription, no data leaving your computer.
+A local, privacy-first alternative to WhisperFlow — powered by Liquid AI's **LFM2.5-Audio-1.5B** model running entirely on your machine.
 
----
-
-## Demo
-
-<video src="demo.mp4" controls width="100%"></video>
-
-| State | Tray icon |
-|-------|-----------|
-| Idle / ready | 🟢 Green mic |
-| Recording | 🔴 Red mic |
-| Transcribing | 🟡 Yellow mic |
+Press a hotkey → speak → text appears in whatever input field is focused. No cloud, no subscription, no data leaves your computer.
 
 ---
 
-## Requirements
+## 🚦 Status Indicators
 
-| Requirement | Notes |
-|-------------|-------|
-| Windows 10/11 | Tested on Windows 11 |
-| Python 3.11+ | [python.org](https://python.org) |
-| Visual Studio 2022 | Community edition is free — needed to build the inference server |
-| CMake | Install via `pip install cmake` |
-| ~1 GB disk | For Q4_0 model files |
-| HuggingFace account | Free — needed to download the model |
-
-> **GPU optional.** A CUDA GPU speeds up inference but the Q4_0 models run fine on CPU.
-> CUDA 12.6 + MSVC 14.39+ required for GPU builds (see [GPU build](#gpu-build-optional)).
+| State | Tray Icon | Description |
+| :--- | :--- | :--- |
+| **Idle / Ready** | 🟢 Green mic | Waiting for hotkey |
+| **Recording** | 🔴 Red mic | Capturing audio from microphone |
+| **Transcribing** | 🟡 Yellow mic | Processing audio through LFM model |
 
 ---
 
-## Setup
+## 🛠️ Platform Support
 
-### 1 — Clone this repo
+| Platform | Status | Preferred Method |
+| :--- | :--- | :--- |
+| **macOS** | ✅ Tested / Stable | Docker (Server) + Python (Client) |
+| **Windows** | ⚠️ Experimental | Manual Build (`llama.cpp`) |
 
+---
+
+## 🚀 Quick Start (macOS)
+
+macOS is the primary tested platform. We recommend using Docker for the heavy lifting.
+
+### 1. Requirements
+- **Docker Desktop** installed and running.
+- **Python 3.11+** installed.
+- **Microphone** access.
+
+### 2. Setup
 ```bash
-git clone https://github.com/waghmareps12/LFM_AUDIO_WINDOWS.git
-cd LFM_AUDIO_WINDOWS
-```
+# Clone the repository
+git clone https://github.com/aniketgiri96/speech_to_type
+cd speech_to_type
 
-### 2 — Install Python dependencies
-
-```bash
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Start the LFM Audio Server
+docker-compose up -d --build
 ```
 
-### 3 — HuggingFace token
-
-The model is gated — you need a free HuggingFace account and to accept the model license.
-
-1. Create an account at [huggingface.co](https://huggingface.co)
-2. Visit [LiquidAI/LFM2.5-Audio-1.5B-GGUF](https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B-GGUF) and accept the license
-3. Create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
-4. Save it:
-
+### 3. Run
 ```bash
-# Windows
-python -c "from pathlib import Path; Path('~/.cache/huggingface').expanduser().mkdir(parents=True, exist_ok=True); Path('~/.cache/huggingface/token').expanduser().write_text('hf_YOUR_TOKEN_HERE')"
+python speech_to_type.py --no-server
 ```
 
-Or install the HF CLI and run `huggingface-cli login`.
+> [!IMPORTANT]
+> The first time you use it, macOS will ask for **Accessibility permissions** (to simulate `Cmd+V`). Please grant them to your Terminal/IDE in *System Settings -> Privacy & Security -> Accessibility*.
 
-### 4 — Download model files
+---
 
+## 🪟 Windows Setup (Experimental)
+
+Windows support is currently in development. These steps require compilation of the inference engine.
+
+### 1. Requirements
+- **Visual Studio 2022** (Community edition) with C++ development tools.
+- **CMake** (`pip install cmake`).
+- **Python 3.11+**.
+
+### 2. Building the Server
 ```bash
-pip install huggingface_hub
+# Clone llama.cpp with LFM support
+git clone https://github.com/ggml-org/llama.cpp.git
+cd llama.cpp
+git fetch origin pull/18641/head:pr-18641
+git checkout pr-18641
 
+# Configure and Build
+cmake -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_SHARED_LIBS=OFF -DGGML_CUDA=OFF
+cmake --build build --config Release --target llama-liquid-audio-server -j 8
+```
+
+### 3. Run
+You can use the provided batch file once setup is complete:
+```cmd
+start.bat
+```
+
+---
+
+## 📦 Model Files (Required)
+
+The LFM model is gated. You must accept the license on HuggingFace to download.
+
+1.  **Accept License**: [LiquidAI/LFM2.5-Audio-1.5B-GGUF](https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B-GGUF)
+2.  **Download**:
+```bash
 python -c "
 from huggingface_hub import hf_hub_download
 from pathlib import Path
@@ -84,201 +112,49 @@ files = [
     'vocoder-LFM2.5-Audio-1.5B-Q4_0.gguf',
     'tokenizer-LFM2.5-Audio-1.5B-Q4_0.gguf',
 ]
-for f in files:
-    print(f'Downloading {f}...')
-    hf_hub_download(repo, f, local_dir=dest)
-print('Done.')
+for f in files: hf_hub_download(repo, f, local_dir=dest)
 "
 ```
 
-Total download: ~1 GB.
-
-### 5 — Build the inference server
-
-The app uses a custom fork of [llama.cpp](https://github.com/ggml-org/llama.cpp) that adds LFM audio support ([PR #18641](https://github.com/ggml-org/llama.cpp/pull/18641)).
-
-```bash
-# Install cmake if you don't have it
-pip install cmake
-
-# Clone llama.cpp and check out the audio PR branch
-git clone https://github.com/ggml-org/llama.cpp.git
-cd llama.cpp
-git fetch origin pull/18641/head:pr-18641
-git checkout pr-18641
-
-# Configure (CPU-only — works on any machine)
-cmake -B build -G "Visual Studio 17 2022" -A x64 ^
-    -DBUILD_SHARED_LIBS=OFF ^
-    -DGGML_CUDA=OFF ^
-    -DLLAMA_CURL=OFF
-
-# Build only the audio server (the CLI target has a Windows build issue — not needed)
-cmake --build build --config Release --target llama-liquid-audio-server -j 8
-
-cd ..
-```
-
-The binary lands at:
-```
-llama.cpp\build\bin\Release\llama-liquid-audio-server.exe
-```
-
-#### GPU build (optional)
-
-Requires MSVC 14.39+ (VS 17.9+) and CUDA 12.x. Upgrade VS first:
-
-```
-winget upgrade Microsoft.VisualStudio.2022.Community
-```
-
-Then replace `-DGGML_CUDA=OFF` with `-DGGML_CUDA=ON` in the cmake configure step.
-
 ---
 
-## Running
+## ⌨️ Configuration
 
-```bash
-python lfm_speech_to_type.py
-```
-
-Or double-click **`start.bat`**.
-
-The app **automatically starts the llama-liquid-audio-server** in the background.
-The server takes **30–60 seconds** to load on first launch. A tray icon appears when ready.
-
----
-
-## Starting the server manually
-
-If you prefer to keep the server running independently (e.g. to avoid the 60s wait on every launch):
-
-**Step 1 — Start the server in one terminal:**
-
-```bat
-llama.cpp\build\bin\Release\llama-liquid-audio-server.exe ^
-  -m  models\LFM2.5-Audio-1.5B-Q4_0.gguf ^
-  -mm models\mmproj-LFM2.5-Audio-1.5B-Q4_0.gguf ^
-  -mv models\vocoder-LFM2.5-Audio-1.5B-Q4_0.gguf ^
-  --tts-speaker-file models\tokenizer-LFM2.5-Audio-1.5B-Q4_0.gguf ^
-  -t 4 --host 127.0.0.1 --port 8142
-```
-
-Wait until you see:
-```
-Model loaded successfully!
-Server ready at http://127.0.0.1:8142
-```
-
-**Step 2 — Launch the app (skip auto-server) in another terminal:**
-
-```bash
-python lfm_speech_to_type.py --no-server
-```
-
-> **Tip:** Save the server command as a `server.bat` file so you can double-click it to start.
-
----
-
-## Hotkey
-
-Default: **`Ctrl + Alt + Space`**
-
-### Change it in `config.ini`
-
-On first run a `config.ini` is created automatically:
+Edit `config.ini` (auto-created on first run) to customize your experience:
 
 ```ini
 [settings]
-; Examples: ctrl+alt+space | ctrl+shift+r | f9
-hotkey = ctrl+alt+space
-
+hotkey = <ctrl>+<alt>+<space>
 port = 8142
 threads = 4
-sample_rate = 16000
 ```
 
-Edit and save — takes effect on next launch.
-
-### Or pass it as a CLI flag
-
-```bash
-python lfm_speech_to_type.py --hotkey ctrl+shift+r
-python lfm_speech_to_type.py --hotkey f9
-```
+### Available CLI Flags
+- `--hotkey`: Override the hotkey (e.g., `--hotkey f9`)
+- `--no-server`: Use this if the server is already running (e.g., in Docker)
+- `--threads`: Number of CPU threads for inference
 
 ---
 
-## All CLI options
+## 🧩 How it Works
 
-```
-usage: lfm_speech_to_type.py [-h] [--hotkey HOTKEY] [--port PORT]
-                              [--host HOST] [--threads THREADS] [--no-server]
-
-options:
-  --hotkey    Toggle hotkey (default: ctrl+alt+space)
-  --port      Audio server port (default: 8142)
-  --host      Audio server host (default: 127.0.0.1)
-  --threads   CPU threads for inference (default: 4)
-  --no-server Skip launching the server (assume it is already running)
-```
+1.  **Hotkey Pressed**: `pynput` catches the trigger and starts `sounddevice` recording.
+2.  **Hotkey Released**: Audio is base64 encoded and sent to the local LFM server.
+3.  **Inference**: The Liquid AI LFM model performs Speech-To-Text locally.
+4.  **Typing**: The app restores your original clipboard and "pastes" the text via system simulation.
 
 ---
 
-## How it works
+## 🛠️ Troubleshooting
 
-```
-Hotkey pressed
-    → Microphone recording starts (pyaudio, 16 kHz float32)
-Hotkey pressed again
-    → WAV bytes encoded as base64
-    → POST /v1/chat/completions  (OpenAI-compatible streaming API)
-        system: "Perform ASR."
-        user:   { type: input_audio, data: <base64 wav> }
-    → Streamed text collected
-    → Text pasted into active input field via clipboard (Ctrl+V)
-```
-
-The model (`LFM2.5-Audio-1.5B`) runs locally via a custom llama.cpp server — no network calls, no API keys, no telemetry.
+- **Server Timeout**: The first load takes ~60s. Check `server.log` for details.
+- **Transcription Accuracy**: Ensure your microphone is clear; the model works best at 16kHz.
+- **Windows Build Errors**: Ensure you have the latest MSVC 14.39+ installed.
 
 ---
 
-## Project structure
+## 📜 Credits & License
 
-```
-lfm-speech-to-type/
-├── lfm_speech_to_type.py   # Main app
-├── test_asr.py             # Quick smoke-test (server must be running)
-├── requirements.txt
-├── start.bat               # Windows launcher
-├── config.ini              # Auto-created on first run (gitignored)
-├── models/                 # GGUF files (gitignored — download manually)
-└── llama.cpp/              # Cloned + built locally (gitignored)
-```
-
----
-
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| `[ERROR] Server binary not found` | Complete step 5 (Build) |
-| `[ERROR] Model file not found` | Complete step 4 (Download) |
-| Server starts but 404 on all routes | Normal — server only exposes `/v1/chat/completions` |
-| Hotkey not working | Run as Administrator (Windows requires admin for some global hooks) |
-| CUDA build: `cudafe++ ACCESS_VIOLATION` | Upgrade MSVC to 14.39+ via VS Installer or `winget upgrade` |
-| Transcription is slow | Increase `--threads`, or upgrade to GPU build |
-
----
-
-## Credits
-
-- [Liquid AI](https://liquid.ai) — LFM2.5-Audio-1.5B model
-- [llama.cpp](https://github.com/ggml-org/llama.cpp) — inference engine
-- [PR #18641](https://github.com/ggml-org/llama.cpp/pull/18641) — LFM audio support
-
----
-
-## License
-
-MIT
+- **Model**: [Liquid AI](https://liquid.ai) (LFM2.5-Audio-1.5B)
+- **Engine**: [llama.cpp](https://github.com/ggml-org/llama.cpp)
+- **License**: MIT
